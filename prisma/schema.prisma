@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Society {
+  society_id         Int       @id @default(autoincrement())
+  society_name       String
+  society_short_name String?
+  category           String?
+  description        String?
+  founded_date       DateTime?
+  status             String    @default("Active")
+  created_at         DateTime  @default(now())
+
+  registrations Registration[]
+  memberships   Membership[]
+  events        Event[]
+  contacts      SocietyContact[]
+  social_media  SocietySocialMedia[]
+
+  @@map("society")
+}
+
+model Registration {
+  registration_id   Int      @id @default(autoincrement())
+  society_id        Int
+  admin_id          Int?
+  student_name      String
+  student_index_no  String
+  student_email     String
+  student_phone     String?
+  faculty           String?
+  department        String?
+  academic_year     String?
+  registration_date DateTime @default(now())
+  status            String   @default("Pending")
+
+  society    Society     @relation(fields: [society_id], references: [society_id])
+  admin      Admin?      @relation(fields: [admin_id], references: [admin_id])
+  membership Membership?
+
+  @@map("registration")
+}
+
+model Membership {
+  membership_id     Int      @id @default(autoincrement())
+  registration_id   Int      @unique
+  society_id        Int
+  student_name      String
+  student_index_no  String
+  student_email     String
+  member_role       String   @default("Member")
+  joined_date       DateTime @default(now())
+  membership_status String   @default("Active")
+
+  registration Registration @relation(fields: [registration_id], references: [registration_id])
+  society      Society      @relation(fields: [society_id], references: [society_id])
+
+  event_members    EventMember[]
+  task_assignments TaskAssignment[]
+
+  @@map("membership")
+}
+
+model Admin {
+  admin_id       Int      @id @default(autoincrement())
+  admin_name     String
+  admin_email    String   @unique
+  admin_password String
+  admin_role     String?
+  status         String   @default("Active")
+  created_at     DateTime @default(now())
+
+  registrations Registration[]
+  events        Event[]
+  tasks         Task[]
+  finances      Finance[]
+  reports       Reporting[]
+  phones        AdminPhone[]
+
+  @@map("admin")
+}
+
+model Event {
+  event_id          Int       @id @default(autoincrement())
+  society_id        Int
+  admin_id          Int
+  event_name        String
+  event_description String?
+  event_type        String?
+  event_date        DateTime?
+  start_time        DateTime?
+  end_time          DateTime?
+  venue             String?
+  event_status      String    @default("Planned")
+  created_at        DateTime  @default(now())
+
+  society Society @relation(fields: [society_id], references: [society_id])
+  admin   Admin   @relation(fields: [admin_id], references: [admin_id])
+
+  event_members EventMember[]
+  tasks         Task[]
+  images        EventImage[]
+  sponsors      EventSponsor[]
+
+  @@map("event")
+}
+
+model EventMember {
+  event_member_id   Int      @id @default(autoincrement())
+  event_id          Int
+  membership_id     Int
+  role_in_event     String?
+  attendance_status String   @default("Registered")
+  joined_date       DateTime @default(now())
+
+  event      Event      @relation(fields: [event_id], references: [event_id])
+  membership Membership @relation(fields: [membership_id], references: [membership_id])
+
+  @@map("event_member")
+}
+
+model Task {
+  task_id          Int       @id @default(autoincrement())
+  event_id         Int
+  admin_id         Int
+  task_title       String
+  task_description String?
+  start_date       DateTime?
+  due_date         DateTime?
+  priority         String    @default("Medium")
+  task_status      String    @default("Pending")
+  created_at       DateTime  @default(now())
+
+  event Event @relation(fields: [event_id], references: [event_id])
+  admin Admin @relation(fields: [admin_id], references: [admin_id])
+
+  task_assignments TaskAssignment[]
+  finances         Finance[]
+  report_tasks     ReportTask[]
+
+  @@map("task")
+}
+
+model TaskAssignment {
+  task_assignment_id Int      @id @default(autoincrement())
+  task_id            Int
+  membership_id      Int
+  assigned_date      DateTime @default(now())
+  assignment_status  String   @default("Assigned")
+
+  task       Task       @relation(fields: [task_id], references: [task_id])
+  membership Membership @relation(fields: [membership_id], references: [membership_id])
+
+  @@map("task_assignment")
+}
+
+model Finance {
+  finance_id       Int      @id @default(autoincrement())
+  task_id          Int
+  admin_id         Int
+  transaction_type String
+  amount           Decimal  @db.Decimal(10, 2)
+  payment_method   String?
+  description      String?
+  transaction_date DateTime @default(now())
+  status           String   @default("Recorded")
+
+  task  Task  @relation(fields: [task_id], references: [task_id])
+  admin Admin @relation(fields: [admin_id], references: [admin_id])
+
+  report_finances ReportFinance[]
+
+  @@map("finance")
+}
+
+model Reporting {
+  report_id          Int      @id @default(autoincrement())
+  admin_id           Int
+  report_title       String
+  report_type        String?
+  report_description String?
+  generated_date     DateTime @default(now())
+  report_status      String   @default("Generated")
+
+  admin Admin @relation(fields: [admin_id], references: [admin_id])
+
+  report_finances ReportFinance[]
+  report_tasks    ReportTask[]
+  attachments     ReportAttachment[]
+
+  @@map("reporting")
+}
+
+model ReportFinance {
+  report_finance_id Int     @id @default(autoincrement())
+  report_id         Int
+  finance_id        Int
+  remarks           String?
+
+  report  Reporting @relation(fields: [report_id], references: [report_id])
+  finance Finance   @relation(fields: [finance_id], references: [finance_id])
+
+  @@map("report_finance")
+}
+
+model ReportTask {
+  report_task_id Int     @id @default(autoincrement())
+  report_id      Int
+  task_id        Int
+  remarks        String?
+
+  report Reporting @relation(fields: [report_id], references: [report_id])
+  task   Task      @relation(fields: [task_id], references: [task_id])
+
+  @@map("report_task")
+}
+
+model SocietyContact {
+  contact_id    Int     @id @default(autoincrement())
+  society_id    Int
+  contact_type  String?
+  contact_value String?
+
+  society Society @relation(fields: [society_id], references: [society_id])
+
+  @@map("society_contact")
+}
+
+model SocietySocialMedia {
+  social_id  Int     @id @default(autoincrement())
+  society_id Int
+  platform   String?
+  link       String?
+
+  society Society @relation(fields: [society_id], references: [society_id])
+
+  @@map("society_social_media")
+}
+
+model AdminPhone {
+  admin_phone_id Int     @id @default(autoincrement())
+  admin_id       Int
+  phone_number   String?
+
+  admin Admin @relation(fields: [admin_id], references: [admin_id])
+
+  @@map("admin_phone")
+}
+
+model EventImage {
+  image_id    Int      @id @default(autoincrement())
+  event_id    Int
+  image_path  String?
+  uploaded_at DateTime @default(now())
+
+  event Event @relation(fields: [event_id], references: [event_id])
+
+  @@map("event_image")
+}
+
+model EventSponsor {
+  sponsor_id   Int      @id @default(autoincrement())
+  event_id     Int
+  sponsor_name String?
+  sponsor_type String?
+  amount       Decimal? @db.Decimal(10, 2)
+  contact_no   String?
+
+  event Event @relation(fields: [event_id], references: [event_id])
+
+  @@map("event_sponsor")
+}
+
+model ReportAttachment {
+  attachment_id Int      @id @default(autoincrement())
+  report_id     Int
+  file_name     String?
+  file_path     String?
+  uploaded_at   DateTime @default(now())
+
+  report Reporting @relation(fields: [report_id], references: [report_id])
+
+  @@map("report_attachment")
+}
